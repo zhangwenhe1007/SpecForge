@@ -25,6 +25,7 @@ SGL_KERNEL_DIR=${SGL_KERNEL_DIR:-$THIRD_PARTY_DIR/sgl-kernel-npu}
 
 SKIP_SGLANG_INSTALL=${SKIP_SGLANG_INSTALL:-0}
 SKIP_SGL_KERNEL_NPU=${SKIP_SGL_KERNEL_NPU:-0}
+SKIP_PYTHON_DEPS=${SKIP_PYTHON_DEPS:-0}
 
 if [[ -z "${ASCEND_HOME_PATH:-}" && -z "${CANN_HOME:-}" ]]; then
     cat >&2 <<'EOF'
@@ -64,8 +65,12 @@ if [[ ! -x "$ENV_PATH/bin/python" ]]; then
 fi
 conda activate "$ENV_PATH"
 
-python -m pip install -r "$BUNDLE_DIR/requirements-ascend.txt"
-python -m pip install triton-ascend "${PIP_INDEX_ARGS[@]}"
+if [[ "$SKIP_PYTHON_DEPS" != "1" ]]; then
+    python -m pip install -r "$BUNDLE_DIR/requirements-ascend.txt"
+    python -m pip install triton-ascend "${PIP_INDEX_ARGS[@]}"
+else
+    echo "Skipping Python dependency install because SKIP_PYTHON_DEPS=1."
+fi
 
 if [[ "$SKIP_SGLANG_INSTALL" != "1" ]]; then
     if [[ ! -d "$SGLANG_DIR/.git" ]]; then

@@ -92,8 +92,13 @@ the SGLang layer without rebuilding `sgl_kernel_npu`:
 SGLANG_REF=refs/pull/23000/head \
 SGLANG_INSTALL_NO_DEPS=1 \
 SKIP_SGL_KERNEL_NPU=1 \
+SKIP_PYTHON_DEPS=1 \
 bash npu_dflash/install_npu_env.sh
 ```
+
+Use `SKIP_PYTHON_DEPS=1` for this repair command when the existing conda env
+already passed `verify_env.py`; it avoids rerunning pip's full dependency
+resolver just to swap the editable SGLang source.
 
 The installer owns the generated editable checkout at
 `npu_dflash/third_party/sglang` and resets it before changing refs. Set
@@ -486,6 +491,7 @@ Your active SGLang install is still the older NPU ref. Repair it:
 SGLANG_REF=refs/pull/23000/head \
 SGLANG_INSTALL_NO_DEPS=1 \
 SKIP_SGL_KERNEL_NPU=1 \
+SKIP_PYTHON_DEPS=1 \
 bash npu_dflash/install_npu_env.sh
 
 python npu_dflash/check_sglang_dflash_support.py --draft-backend ascend
