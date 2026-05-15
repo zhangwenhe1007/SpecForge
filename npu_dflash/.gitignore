@@ -1,0 +1,9 @@
+conda/
+cache/
+outputs/
+__pycache__/
+*.pyc
+logs*.txt
+*.log
+*.bak
+*.bak_*

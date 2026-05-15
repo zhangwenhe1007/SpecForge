@@ -1,0 +1,53 @@
+# Reproducible Ascend NPU install for SpecForge DFlash.
+#
+# Usage:
+#   python -m pip install -r npu_dflash/requirements-ascend.txt
+#
+# Notes:
+# - The Huawei Cloud mirror is used for torch, torchvision, torch_npu, and
+#   normal PyPI packages.
+# - SpecForge's upstream pyproject currently pins torch==2.9.1. Ascend NPU
+#   support is pinned here to torch/torch_npu 2.9.0 instead.
+# - Install SpecForge itself with `pip install -e . --no-deps` after this file.
+# - Install SGLang from source with its NPU pyproject; see install_npu_env.sh.
+
+--index-url https://mirrors.huaweicloud.com/repository/pypi/simple/
+--trusted-host mirrors.huaweicloud.com
+
+torch==2.9.0
+torchvision==0.24.0
+torch_npu==2.9.0
+
+yunchang==0.6.4
+
+transformers==4.57.1
+qwen-vl-utils==0.0.11
+
+datasets==4.8.5
+accelerate==1.13.0
+safetensors==0.7.0
+einops==0.8.2
+
+numpy<2.0
+pydantic==2.13.3
+psutil
+tqdm
+ninja
+packaging
+setuptools<81
+
+decorator
+cloudpickle
+ml-dtypes
+tornado
+scipy
+cffi
+pybind11
+sympy
+absl-py
+protobuf>=4.25,<5
+
+wandb==0.26.1
+tensorboard==2.20.0
+
+openai-harmony==0.0.8

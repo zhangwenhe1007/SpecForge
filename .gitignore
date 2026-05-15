@@ -199,3 +199,29 @@ wandb/
 
 # macOS
 .DS_Store
+
+# NPU DFlash generated artifacts
+npu_dflash/conda/
+npu_dflash/cache/
+npu_dflash/outputs/
+npu_dflash/logs*.txt
+npu_dflash/*.log
+
+# local backup patches
+*.bak_*
+*.bak
+
+# NPU DFlash local/generated artifacts
+npu_dflash/conda/
+npu_dflash/cache/
+npu_dflash/outputs/
+npu_dflash/__pycache__/
+npu_dflash/**/*.pyc
+npu_dflash/logs*.txt
+npu_dflash/*.log
+npu_dflash/*.bak
+npu_dflash/*.bak_*
+npu_dflash/**/*.bak
+npu_dflash/**/*.bak_*
+scripts/*.bak
+scripts/*.bak_*

@@ -22,6 +22,13 @@ from transformers import AutoConfig, AutoTokenizer
 
 from datasets import load_dataset
 from specforge.args import SGLangBackendArgs, TrackerArgs
+
+def _npu_dflash_drop_duplicate_device(kwargs):
+    """Avoid passing device twice into get_dflash_target_model on NPU/SGLang."""
+    kwargs = dict(kwargs)
+    kwargs.pop("device", None)
+    return kwargs
+
 from specforge.core.dflash import OnlineDFlashModel
 from specforge.data import build_eagle3_dataset, prepare_dp_dataloaders
 from specforge.distributed import destroy_distributed, get_dp_group, init_distributed
@@ -155,6 +162,10 @@ def build_models(args) -> Tuple[DFlashTargetModel, DFlashDraftModel]:
     target_model_kwargs = {}
     if args.target_model_backend == "sglang":
         target_model_kwargs = SGLangBackendArgs.from_args(args).to_kwargs()
+        # NPU-DFlash patch: avoid passing device twice.
+        # SGLangBackendArgs.to_kwargs() may include device="npu",
+        # while get_dflash_target_model is also called with device=...
+        target_model_kwargs.pop("device", None)
 
     target_model = get_dflash_target_model(
         pretrained_model_name_or_path=args.target_model_path,
