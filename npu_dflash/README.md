@@ -22,6 +22,10 @@ editing tracked SpecForge files on the NPU server.
 - `chat_client.py`: small OpenAI-compatible client for the SGLang server.
 - `make_tiny_dataset.py`: creates a tiny JSONL smoke-test dataset.
 - `verify_env.py`: verifies imports and NPU availability.
+- `check_sglang_dflash_support.py`: verifies that the active SGLang install has
+  native DFlash serving support.
+- `patch_installed_sglang.py`: applies small patches to the editable SGLang NPU
+  source under `npu_dflash/third_party/`.
 
 Generated files stay under ignored paths in this folder:
 
@@ -50,7 +54,10 @@ The runtime patches do four things:
   `cumprod()`.
 
 The default SGLang attention backend is `ascend`. Do not use CUDA-only backends
-such as `fa3` or `flashinfer` on NPU.
+such as `fa3` or `flashinfer` on NPU. For DFlash serving, this bundle installs
+SGLang from the official DFlash SGLang ref (`refs/pull/23000/head`) because
+older NPU SGLang tags can train through SpecForge but do not expose native
+`--speculative-algorithm DFLASH`.
 
 ## Install on the NPU Server
 
@@ -75,6 +82,24 @@ Install the environment:
 bash npu_dflash/install_npu_env.sh
 ```
 
+By default, `install_npu_env.sh` installs SGLang editable from
+`refs/pull/23000/head` with `--no-deps` so the Ascend `torch`,
+`torch_npu`, and `transformers` pins in `requirements-ascend.txt` remain in
+place. If you already installed the older `v0.5.9` SGLang NPU ref, repair only
+the SGLang layer without rebuilding `sgl_kernel_npu`:
+
+```bash
+SGLANG_REF=refs/pull/23000/head \
+SGLANG_INSTALL_NO_DEPS=1 \
+SKIP_SGL_KERNEL_NPU=1 \
+bash npu_dflash/install_npu_env.sh
+```
+
+The installer owns the generated editable checkout at
+`npu_dflash/third_party/sglang` and resets it before changing refs. Set
+`SGLANG_RESET_THIRD_PARTY=0` only if you intentionally made manual edits there
+and want to inspect them first.
+
 Activate it:
 
 ```bash
@@ -87,6 +112,7 @@ Verify:
 ```bash
 python npu_dflash/verify_env.py
 python npu_dflash/make_tiny_dataset.py
+python npu_dflash/check_sglang_dflash_support.py --draft-backend ascend
 ```
 
 `verify_env.py` should show successful imports for `torch_npu`, `sglang`,
@@ -366,12 +392,19 @@ SGLANG_ATTENTION_BACKEND=torch_native bash npu_dflash/run_train_sglang.sh
 
 ## SGLang DFlash Serving
 
+This serving path requires native SGLang `DFLASH` support. Do not set
+`SPECULATIVE_ALGORITHM=EAGLE3` for a SpecForge DFlash checkpoint: EAGLE3 treats
+the checkpoint as a normal HF draft model and can fail at
+`get_input_embeddings()`, because DFlash intentionally uses the target model's
+embedding and LM head.
+
 Start the server:
 
 ```bash
 TARGET_MODEL=/path/to/Qwen3-8B \
 DRAFT_MODEL=/path/to/dflash/checkpoint \
-ASCEND_RT_VISIBLE_DEVICES=0 \
+ASCEND_RT_VISIBLE_DEVICES=0,1,2,3 \
+TP_SIZE=4 \
 bash npu_dflash/run_sglang_dflash_server.sh
 ```
 
@@ -379,11 +412,31 @@ Optional server settings:
 
 ```bash
 PORT=30000
-TP_SIZE=1
+TP_SIZE=4
 SGLANG_ATTENTION_BACKEND=ascend
 SGLANG_DRAFT_ATTENTION_BACKEND=ascend
-SGLANG_MEM_FRACTION_STATIC=0.75
+SGLANG_MEM_FRACTION_STATIC=0.10
+SPECULATIVE_ALGORITHM=DFLASH
+SPECULATIVE_NUM_DRAFT_TOKENS=16
+DFLASH_BLOCK_SIZE=16
 EXTRA_SGLANG_ARGS="--some-extra-flag value"
+```
+
+For your tiny TP=4 SGLang-trained checkpoint, the command is:
+
+```bash
+PYTHONWARNINGS=ignore \
+TARGET_MODEL=/home/f00518697/models/Qwen3-8B \
+DRAFT_MODEL=/home/f00518697/w84449419/SpecForge/npu_dflash/outputs/qwen3-8b-dflash-sglang/epoch_1_step_8 \
+ASCEND_RT_VISIBLE_DEVICES=0,1,2,3 \
+TP_SIZE=4 \
+PORT=30000 \
+SGLANG_ATTENTION_BACKEND=ascend \
+SGLANG_DRAFT_ATTENTION_BACKEND=ascend \
+SGLANG_MEM_FRACTION_STATIC=0.10 \
+SPECULATIVE_NUM_DRAFT_TOKENS=4 \
+DFLASH_BLOCK_SIZE=4 \
+bash npu_dflash/run_sglang_dflash_server.sh
 ```
 
 In a second shell:
@@ -413,8 +466,9 @@ If pip installs a post-release such as `2.9.0.post1`, update
 
 ### SGLang install stalls on CUDA packages
 
-Re-run with dependency resolution disabled and then install missing import-time
-packages one by one:
+The default installer already uses `SGLANG_INSTALL_NO_DEPS=1` for SGLang. If a
+manual reinstall tries to resolve CUDA-only packages, keep dependency resolution
+disabled and then install missing import-time packages one by one:
 
 ```bash
 SGLANG_INSTALL_NO_DEPS=1 bash npu_dflash/install_npu_env.sh
@@ -423,6 +477,39 @@ python -c "import sglang.srt.managers.mm_utils"
 
 Do not install CUDA-only packages such as `flashinfer-python`, `sgl-kernel`, or
 `vllm-flash-attn` on NPU.
+
+### `DFLASH` is not an accepted speculative algorithm
+
+Your active SGLang install is still the older NPU ref. Repair it:
+
+```bash
+SGLANG_REF=refs/pull/23000/head \
+SGLANG_INSTALL_NO_DEPS=1 \
+SKIP_SGL_KERNEL_NPU=1 \
+bash npu_dflash/install_npu_env.sh
+
+python npu_dflash/check_sglang_dflash_support.py --draft-backend ascend
+```
+
+Do not work around this by switching to `SPECULATIVE_ALGORITHM=EAGLE3`; that
+enters the wrong draft-model loading path for DFlash checkpoints.
+
+### DFlash worker falls back to `flashinfer` on NPU
+
+Run:
+
+```bash
+python npu_dflash/patch_installed_sglang.py
+python npu_dflash/check_sglang_dflash_support.py --draft-backend ascend
+```
+
+This patches the editable SGLang DFlash worker to allow the `ascend` draft
+attention backend. If `ascend` still fails inside the draft attention kernel,
+try the Triton-Ascend path:
+
+```bash
+SGLANG_DRAFT_ATTENTION_BACKEND=triton bash npu_dflash/run_sglang_dflash_server.sh
+```
 
 ### `sgl_kernel_npu` build uses the wrong CANN path
 

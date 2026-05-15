@@ -51,3 +51,44 @@ wandb==0.26.1
 tensorboard==2.20.0
 
 openai-harmony==0.0.8
+
+# SGLang runtime dependencies installed explicitly because SGLang is installed
+# editable with --no-deps to preserve the Ascend torch/torch_npu/transformers
+# pins above.
+IPython
+aiohttp
+anthropic>=0.20.0
+blobfile==3.0.0
+av
+build
+compressed-tensors
+fastapi
+easydict
+gguf
+hf_transfer
+huggingface_hub
+interegular
+llguidance>=0.7.11,<0.8.0
+modelscope
+msgspec
+openai==2.6.1
+orjson
+outlines==0.1.11
+partial_json_parser
+pillow
+prometheus-client>=0.20.0
+py-spy
+pybase64
+python-multipart
+pyzmq>=25.1.2
+sentencepiece
+setproctitle
+soundfile==0.13.1
+tiktoken
+timm==1.0.16
+torchao==0.9.0
+uvicorn
+uvloop
+xgrammar==0.2.0
+smg-grpc-servicer>=0.5.0
+mistral_common>=1.11.0
